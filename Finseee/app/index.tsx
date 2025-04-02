@@ -15,7 +15,7 @@ export default function Index() {
       
       if (!userData || !userData.isRegistered) {
         console.log('Redirecting to onboarding'); // Debug log
-        router.replace('/screen/home');
+        router.replace('/onboarding');
       } else {
         console.log('Redirecting to home'); // Debug log
         router.replace('/screen/home');

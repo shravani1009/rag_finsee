@@ -1,69 +1,66 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert } from 'react-native';
-import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { textToSpeech } from '../utils/tts';
 import { storeUserData } from '../utils/storage';
-import VoiceManager from '../utils/voiceManager';
-import { sendAudioToSarvam } from '../utils/audioUtils';
+import { Audio } from 'expo-av';
+import { textToSpeech } from '../utils/tts';
+
+const route = '/onboarding/registration';
+export { route };
 
 const BACKEND_URL = 'http://192.168.0.109:5000';
 
+const BANK_LIST = [
+  // Private Sector Banks
+  'Axis Bank', 'Bandhan Bank', 'City Union Bank', 'CSB Bank', 'DCB Bank',
+  'Federal Bank', 'HDFC Bank', 'ICICI Bank', 'IDBI Bank', 'IDFC First Bank',
+  'IndusInd Bank', 'Jammu & Kashmir Bank', 'Karnataka Bank', 'Karur Vysya Bank',
+  'Kotak Mahindra Bank', 'RBL Bank', 'South Indian Bank', 'Tamilnad Mercantile Bank',
+  'Yes Bank',
+  // Small Finance Banks
+  'AU Small Finance Bank', 'Capital Small Finance Bank', 'Equitas Small Finance Bank',
+  'ESAF Small Finance Bank', 'Jana Small Finance Bank', 'North East Small Finance Bank',
+  'Shivalik Small Finance Bank', 'Suryoday Small Finance Bank', 'Ujjivan Small Finance Bank',
+  'Unity Small Finance Bank', 'Utkarsh Small Finance Bank',
+  // Regional Rural Banks
+  'Andhra Pradesh Grameena Vikas Bank', 'Aryavart Bank', 'Assam Gramin Vikash Bank',
+  'Baroda Gujarat Gramin Bank', 'Baroda Rajasthan Kshetriya Gramin Bank',
+  'Baroda UP Bank', 'Chaitanya Godavari Grameena Bank', 'Kerala Gramin Bank',
+  'Madhya Pradesh Gramin Bank', 'Punjab Gramin Bank', 'Tamil Nadu Grama Bank',
+  'Utkal Grameen Bank'
+];
+
 export default function RegistrationScreen() {
   const router = useRouter();
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [currentStep, setCurrentStep] = useState('phone');
   const [formData, setFormData] = useState({
+    name: '',
     phone: '',
-    otp: '',
-    upiPin: '',
+    bankName: '',
+    accountNumber: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const silenceTimeout = useRef<NodeJS.Timeout>();
-  const processingRef = useRef(false);
-  const voiceManager = VoiceManager.getInstance();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [pendingConfirmation, setPendingConfirmation] = useState<any>(null);
-  const [lastTapTime, setLastTapTime] = useState(0);
-  const [doubleTapTimer, setDoubleTapTimer] = useState<NodeJS.Timeout | null>(null);
-  const TAP_TIMEOUT = 300;
-  const [tapHistory, setTapHistory] = useState<number[]>([]);
-  const TAP_WINDOW = 1000;
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [bankSearch, setBankSearch] = useState('');
+  const [filteredBanks, setFilteredBanks] = useState(BANK_LIST);
 
-  useEffect(() => {
-    checkAccessibilityMode();
-    return () => cleanup();
-  }, []);
-
-  const checkAccessibilityMode = async () => {
-    const userData = await getUserData();
-    const isAccessible = userData?.accessibilityMode || false;
-    setAccessibilityMode(isAccessible);
-    if (isAccessible) {
-      await setupAudio();
-      await startAssistant();
+  const validateForm = () => {
+    if (!formData.name || !formData.phone || !formData.bankName || !formData.accountNumber) {
+      Alert.alert('Error', 'All fields are required');
+      return false;
     }
-  };
 
-  const setupAudio = async () => {
-    await Audio.requestPermissionsAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
-  };
+    if (formData.phone.length !== 10) {
+      Alert.alert('Error', 'Phone number must be 10 digits');
+      return false;
+    }
 
-  const cleanup = () => {
-    if (sound) sound.unloadAsync();
-    if (recording) recording.stopAndUnloadAsync();
-    if (silenceTimeout.current) clearTimeout(silenceTimeout.current);
-  };
+    if (formData.accountNumber.length < 9) {
+      Alert.alert('Error', 'Account number must be at least 9 characters');
+      return false;
+    }
 
-  const startAssistant = async () => {
-    await speakText('Welcome to registration. Please tell me your phone number.');
-    await startListening();
+    return true;
   };
 
   const speakText = async (text: string) => {
@@ -82,261 +79,108 @@ export default function RegistrationScreen() {
     }
   };
 
-  const startListening = async () => {
-    if (isListening) return;
-    try {
-      setIsListening(true);
-      await voiceManager.startRecording(() => {
-        if (isListening) {
-          stopListening();
-        }
-      });
-    } catch (error) {
-      console.error('Recording Error:', error);
-      setIsListening(false);
-    }
-  };
-
-  const stopListening = async () => {
-    try {
-      const uri = await voiceManager.stopRecording();
-      setIsListening(false);
-      
-      if (uri) {
-        await processAudio(uri);
-      }
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-    }
-  };
-
-  const processAudio = async (audioUri: string) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/onboarding`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          audioUri,
-          currentStep,
-          formData,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.status === 'success') {
-        await handleResponse(data.data);
-      }
-    } catch (error) {
-      console.error('Processing Error:', error);
-      await speakText('Sorry, I could not process that. Please try again.');
-      startListening();
-    }
-  };
-
-  const handleResponse = async (data: any) => {
-    const { step, value, message } = data;
-    
-    if (!value && step !== 'complete') {
-      await speakText('I did not understand. Please try again.');
-      startListening();
-      return;
-    }
-
-    await speakText(message);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    if (value) {
-      const updatedFormData = { ...formData, [step]: value };
-      setFormData(updatedFormData);
-      
-      if (step === 'complete') {
-        try {
-          await storeUserData({
-            phone: updatedFormData.phone,
-            upiPin: updatedFormData.upiPin,
-            isRegistered: true,
-          });
-          const userData = await getUserData();
-          if (userData?.isRegistered) {
-            await speakText('Registration complete. Taking you to the home screen.');
-            router.replace('/screen/home');
-          } else {
-            await speakText('There was an error saving your data. Please try again.');
-            startListening();
-          }
-        } catch (error) {
-          console.error('Error storing completion data:', error);
-          await speakText('There was an error. Please try again.');
-          startListening();
-        }
-      }
-    }
-
-    if (step !== 'complete') {
-      setCurrentStep(step);
-      setTimeout(() => {
-        startListening();
-      }, 1000);
-    }
-  };
-
-  const handleScreenTouch = () => {
-    if (!accessibilityMode) return;
-
-    const now = Date.now();
-    const recentTaps = [...tapHistory, now].filter(tap => now - tap < TAP_WINDOW);
-    setTapHistory(recentTaps);
-
-    if (recentTaps.length === 2) { // Double tap
-      setTapHistory([]); // Reset taps
-      handleDoubleTap();
-    }
-  };
-
-  const handleDoubleTap = async () => {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
     
     try {
-      if (isListening) {
-        await stopListening();
-      } else {
-        await startListening();
-      }
-    } catch (error) {
-      console.error('Double tap handling error:', error);
-    }
-  };
-
-  const startRecording = async () => {
-    if (isListening || isProcessing) return;
-    
-    try {
-      setIsProcessing(true);
-      await voiceManager.waitForSpeechToFinish();
-      
-      const { recording } = await Audio.Recording.createAsync({
-        android: {
-          extension: '.wav',
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.wav',
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
+      setIsLoading(true);
+      await storeUserData({
+        ...formData,
+        isRegistered: true,
       });
-
-      setRecording(recording);
-      setIsListening(true);
-      await speakText('Listening. Double tap when done speaking.');
+      await speakText('Registration successful');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      router.push('/screen/home');
     } catch (error) {
-      console.error('Recording error:', error);
-      await speakText('Failed to start recording. Please try again.');
+      console.error('Registration error:', error);
+      await speakText('Registration unsuccessful');
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
-      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
 
-  const stopAndProcessRecording = async () => {
-    if (!recording || !isListening) return;
-    
-    try {
-      setIsProcessing(true);
-      setIsListening(false);
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      
-      if (uri) {
-        const transcript = await sendAudioToSarvam(uri);
-        await processVoiceInput(transcript);
-      }
-    } catch (error) {
-      console.error('Processing error:', error);
-      await speakText('Failed to process. Please try again.');
-    } finally {
-      setRecording(null);
-      setIsProcessing(false);
-    }
+  const handleBankSearch = (text: string) => {
+    setBankSearch(text);
+    setFormData({ ...formData, bankName: text });
+    const filtered = BANK_LIST.filter(bank => 
+      bank.toLowerCase().includes(text.toLowerCase())
+    );
+    setFilteredBanks(filtered);
+    setShowBankDropdown(true);
   };
 
-  const processVoiceInput = async (transcript: string) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/process-voice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript,
-          currentStep,
-          context: 'registration',
-          formData
-        })
-      });
-
-      const data = await response.json();
-      if (data.status === 'success') {
-        const { value, message, needs_confirmation } = data.data;
-        
-        if (needs_confirmation) {
-          setPendingConfirmation(data.data);
-          await speakText(`${message}. Double tap to confirm or speak again to retry.`);
-        } else {
-          await handleResponse(data.data);
-        }
-      }
-    } catch (error) {
-      console.error('Voice processing error:', error);
-      await speakText('Sorry, please try again.');
-    }
+  const selectBank = (bank: string) => {
+    setFormData({ ...formData, bankName: bank });
+    setBankSearch(bank);
+    setShowBankDropdown(false);
   };
 
   return (
-    <View 
-      style={styles.container} 
-      onTouchEnd={handleScreenTouch}
-      accessible={true}
-      accessibilityHint={
-        isListening 
-          ? "Double tap to stop recording" 
-          : "Double tap to start recording"
-      }
-    >
+    <View style={styles.container}>
       <Text style={styles.title}>Registration</Text>
       <View style={styles.form}>
+        <Text style={styles.label}>Full Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Phone Number"
-          value={formData.phone}
-          editable={false}
+          placeholder="Enter your full name"
+          value={formData.name}
+          onChangeText={(text) => setFormData({ ...formData, name: text })}
         />
-        {currentStep === 'otp' && (
+
+        <Text style={styles.label}>Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your phone number"
+          value={formData.phone}
+          onChangeText={(text) => setFormData({ ...formData, phone: text })}
+          keyboardType="phone-pad"
+          maxLength={10}
+        />
+
+        <Text style={styles.label}>Bank Name</Text>
+        <View style={styles.bankInputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="OTP"
-            value={formData.otp}
-            editable={false}
+            placeholder="Search bank name"
+            value={formData.bankName}
+            onChangeText={handleBankSearch}
+            onFocus={() => setShowBankDropdown(true)}
           />
-        )}
-        {currentStep === 'upiPin' && (
-          <TextInput
-            style={styles.input}
-            placeholder="UPI PIN"
-            value={formData.upiPin}
-            editable={false}
-            secureTextEntry
-          />
-        )}
+          {showBankDropdown && (
+            <View style={styles.dropdown}>
+              <ScrollView style={styles.dropdownList}>
+                {filteredBanks.map((bank, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.dropdownItem}
+                    onPress={() => selectBank(bank)}
+                  >
+                    <Text>{bank}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.label}>Account Number</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your account number"
+          value={formData.accountNumber}
+          onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
+          maxLength={18}
+        />
+
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={handleSubmit}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
       </View>
-      <Text style={styles.status}>
-        {isListening ? 'Listening...' : 'Processing...'}
-      </Text>
     </View>
   );
 }
@@ -355,7 +199,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   form: {
-    gap: 20,
+    gap: 10,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#333',
   },
   input: {
     borderWidth: 1,
@@ -364,9 +214,40 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
   },
-  status: {
+  bankInputContainer: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    maxHeight: 200,
+    zIndex: 2,
+  },
+  dropdownList: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  button: {
+    backgroundColor: '#4285F4',
+    padding: 15,
+    borderRadius: 10,
     marginTop: 20,
+  },
+  buttonText: {
+    color: '#fff',
     textAlign: 'center',
-    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
