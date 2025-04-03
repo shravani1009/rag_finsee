@@ -29,7 +29,9 @@ export default function CheckBalanceScreen() {
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
       });
-      await speakText('Welcome to check balance. Please enter your 4-digit passcode');
+      setTimeout(async () => {
+        await speakText('Welcome to check balance. Please enter your 4-digit passcode');
+      }, 1000);
     };
 
     initAudio();

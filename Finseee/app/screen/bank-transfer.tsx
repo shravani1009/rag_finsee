@@ -37,7 +37,10 @@ export default function BankTransferScreen() {
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
       });
-      await speakText('Welcome to bank transfer. Please select your bank and enter account details');
+      // Add delay before welcome message
+      setTimeout(async () => {
+        await speakText('Welcome to bank transfer. Please select your bank and enter account details');
+      }, 1000);
     };
 
     initAudio();

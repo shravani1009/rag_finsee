@@ -36,7 +36,9 @@ export default function PayContactsScreen() {
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
       });
-      await speakText('Welcome to payment screen. Please select the contact and enter the amount');
+      setTimeout(async () => {
+        await speakText('Welcome to payment screen. Please select the contact and enter the amount');
+      }, 1000);
     };
 
     initAudio();

@@ -27,7 +27,9 @@ export default function PayPhoneScreen() {
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
       });
-      await speakText('Welcome to payment screen. Please enter the phone number and amount');
+      setTimeout(async () => {
+        await speakText('Welcome to payment screen. Please enter the phone number and amount');
+      }, 1000);
     };
 
     initAudio();
