@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { textToSpeech } from '../utils/tts';
 
 const SARVAM_API_KEY = '9ede12ba-df25-4f8c-8429-eac58a72fc8f'; // Replace with your actual API key
@@ -10,6 +10,7 @@ const BACKEND_URL = 'http://192.168.29.114:5000';  // Update with your local IP
 
 export default function AssistanceScreen() {
   const router = useRouter();
+  const { autoStart } = useLocalSearchParams();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -19,6 +20,8 @@ export default function AssistanceScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [responseSound, setResponseSound] = useState<Audio.Sound | null>(null);
+  const [lastTap, setLastTap] = useState(0);
+  const DOUBLE_TAP_DELAY = 300;
 
   useEffect(() => {
     (async () => {
@@ -30,6 +33,11 @@ export default function AssistanceScreen() {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
+
+      // Auto-start recording if navigated from home screen
+      if (autoStart) {
+        startListening();
+      }
     })();
   }, []);
 
@@ -68,6 +76,7 @@ export default function AssistanceScreen() {
           linearPCMIsFloat: false,
         },
       });
+
       setRecording(recording);
       setIsListening(true);
       setSpokenText('Recording...');
@@ -220,8 +229,22 @@ export default function AssistanceScreen() {
     }
   };
 
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTap < DOUBLE_TAP_DELAY) {
+      if (isListening) {
+        stopListening();
+      }
+    }
+    setLastTap(now);
+  };
+
   return (
-    <View style={styles.container}>
+    <TouchableOpacity 
+      style={styles.container} 
+      onPress={handleDoubleTap}
+      activeOpacity={1}
+    >
       <Text style={styles.title}>Finsee Assistant</Text>
       
       <View style={styles.statusContainer}>
@@ -266,7 +289,7 @@ export default function AssistanceScreen() {
           Translation: {translation}
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
