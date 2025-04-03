@@ -21,7 +21,9 @@
       },
       "config": {
         "accessibility": {
-          "services": ["talkback"]
+          "services": [
+            "talkback"
+          ]
         }
       }
     },
