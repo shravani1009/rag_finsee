@@ -37,12 +37,14 @@ export default function RegistrationScreen() {
     phone: '',
     bankName: '',
     accountNumber: '',
+    voice_features: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [showBankDropdown, setShowBankDropdown] = useState(false);
   const [bankSearch, setBankSearch] = useState('');
   const [filteredBanks, setFilteredBanks] = useState(BANK_LIST);
+  const [isRecording, setIsRecording] = useState(false);
 
   const validateForm = () => {
     if (!formData.name || !formData.phone || !formData.bankName || !formData.accountNumber) {
@@ -116,6 +118,12 @@ export default function RegistrationScreen() {
     setShowBankDropdown(false);
   };
 
+  const handleVoiceRecording = () => {
+    setIsRecording(!isRecording);
+    // TODO: Implement voice recording logic
+    Alert.alert('Voice Recording', 'Voice recording feature will be implemented here');
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Registration</Text>
@@ -179,6 +187,15 @@ export default function RegistrationScreen() {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.voiceButton]} 
+          onPress={handleVoiceRecording}
+        >
+          <Text style={styles.buttonText}>
+            {isRecording ? 'Stop Recording' : 'Add Your Voice'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -249,5 +266,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+  },
+  voiceButton: {
+    backgroundColor: '#34A853',
+    marginTop: 10,
   },
 });
