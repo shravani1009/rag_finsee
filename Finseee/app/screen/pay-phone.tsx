@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
 import { Audio } from 'expo-av';
 import { textToSpeech } from '../utils/tts';
+import { useDoubleTapListener } from '../hooks/useDoubleTapListener';
 
 export default function PayPhoneScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleDoubleTap = useDoubleTapListener();
 
   const speakText = async (text: string) => {
     try {
@@ -68,59 +71,61 @@ export default function PayPhoneScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Pay via Phone Number</Text>
-      
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="10-digit phone number"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            maxLength={10}
-            onBlur={() => {
-              if (phoneNumber.length === 10) {
-                speakText('Phone number entered. Please enter the amount');
-              }
-            }}
-          />
-        </View>
+    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Pay via Phone Number</Text>
+        
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="10-digit phone number"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              maxLength={10}
+              onBlur={() => {
+                if (phoneNumber.length === 10) {
+                  speakText('Phone number entered. Please enter the amount');
+                }
+              }}
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Amount</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            onBlur={() => {
-              if (amount && !isNaN(Number(amount))) {
-                speakText(`Amount entered: ${amount} rupees`);
-              }
-            }}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Amount</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter amount"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              onBlur={() => {
+                if (amount && !isNaN(Number(amount))) {
+                  speakText(`Amount entered: ${amount} rupees`);
+                }
+              }}
+            />
+          </View>
 
-        <TouchableOpacity 
-          style={[
-            styles.button,
-            ((!phoneNumber || !amount) || isProcessing) && styles.buttonDisabled
-          ]} 
-          onPress={handlePayment}
-          disabled={!phoneNumber || !amount || isProcessing}
-        >
-          {isProcessing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Make Payment</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={[
+              styles.button,
+              ((!phoneNumber || !amount) || isProcessing) && styles.buttonDisabled
+            ]} 
+            onPress={handlePayment}
+            disabled={!phoneNumber || !amount || isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Make Payment</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </TouchableWithoutFeedback>
   );
 }
 

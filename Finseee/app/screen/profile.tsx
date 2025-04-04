@@ -1,11 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableWithoutFeedback } from 'react-native';
+import { useDoubleTapListener } from '../hooks/useDoubleTapListener';
 
 export default function ProfileScreen() {
+  const handleDoubleTap = useDoubleTapListener();
+  
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Profile Screen</Text>
-    </View>
+    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <View style={styles.container}>
+        <Text style={styles.text}>Profile Screen</Text>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

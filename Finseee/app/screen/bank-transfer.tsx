@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { Audio } from 'expo-av';
 import { textToSpeech } from '../utils/tts';
+import { useDoubleTapListener } from '../hooks/useDoubleTapListener';
 
 export default function BankTransferScreen() {
   const [selectedBank, setSelectedBank] = useState(null);
@@ -10,6 +11,7 @@ export default function BankTransferScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const handleDoubleTap = useDoubleTapListener();
 
   const banks = [
     { id: '1', name: 'State Bank of India' },
@@ -98,66 +100,68 @@ export default function BankTransferScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Bank Transfer</Text>
-      
-      <View style={styles.bankList}>
-        {banks.map((bank) => (
-          <TouchableOpacity
-            key={bank.id}
-            style={[
-              styles.bankItem,
-              selectedBank?.id === bank.id && styles.selectedBank
-            ]}
-            onPress={() => handleBankSelect(bank)}
-          >
-            <Text style={styles.bankName}>{bank.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {selectedBank && (
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Account Number"
-            value={accountNumber}
-            onChangeText={setAccountNumber}
-            keyboardType="numeric"
-            onBlur={() => {
-              if (accountNumber.length >= 8) {
-                speakText('Account number entered. Please enter amount');
-              }
-            }}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            onBlur={() => {
-              if (amount && !isNaN(Number(amount))) {
-                speakText(`Amount entered: ${amount} rupees`);
-              }
-            }}
-          />
-
-          <TouchableOpacity
-            style={[styles.button, isProcessing && styles.buttonDisabled]}
-            onPress={handleTransfer}
-            disabled={isProcessing || !accountNumber || !amount}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Transfer Money</Text>
-            )}
-          </TouchableOpacity>
+    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>Bank Transfer</Text>
+        
+        <View style={styles.bankList}>
+          {banks.map((bank) => (
+            <TouchableOpacity
+              key={bank.id}
+              style={[
+                styles.bankItem,
+                selectedBank?.id === bank.id && styles.selectedBank
+              ]}
+              onPress={() => handleBankSelect(bank)}
+            >
+              <Text style={styles.bankName}>{bank.name}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
-    </ScrollView>
+
+        {selectedBank && (
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Account Number"
+              value={accountNumber}
+              onChangeText={setAccountNumber}
+              keyboardType="numeric"
+              onBlur={() => {
+                if (accountNumber.length >= 8) {
+                  speakText('Account number entered. Please enter amount');
+                }
+              }}
+            />
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Amount"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              onBlur={() => {
+                if (amount && !isNaN(Number(amount))) {
+                  speakText(`Amount entered: ${amount} rupees`);
+                }
+              }}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, isProcessing && styles.buttonDisabled]}
+              onPress={handleTransfer}
+              disabled={isProcessing || !accountNumber || !amount}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Transfer Money</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
 }
 

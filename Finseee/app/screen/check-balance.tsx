@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { Audio } from 'expo-av';
 import { textToSpeech } from '../utils/tts';
+import { useDoubleTapListener } from '../hooks/useDoubleTapListener';
 
 export default function CheckBalanceScreen() {
   const [passcode, setPasscode] = useState('');
@@ -74,39 +75,43 @@ export default function CheckBalanceScreen() {
     }
   };
 
+  const handleDoubleTap = useDoubleTapListener();
+
   return (
-    <View style={styles.container}>
-      {balance === null ? (
-        <View style={styles.form}>
-          <Text style={styles.title}>Enter Passcode</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter 4-digit passcode"
-            value={passcode}
-            onChangeText={setPasscode}
-            keyboardType="numeric"
-            maxLength={4}
-            secureTextEntry
-          />
-          <TouchableOpacity
-            style={[styles.button, isProcessing && styles.buttonDisabled]}
-            onPress={handleCheckBalance}
-            disabled={isProcessing || passcode.length !== 4}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Check Balance</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.balanceContainer}>
-          <Text style={styles.balanceTitle}>Current Balance</Text>
-          <Text style={styles.balanceAmount}>₹{balance}</Text>
-        </View>
-      )}
-    </View>
+    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <View style={styles.container}>
+        {balance === null ? (
+          <View style={styles.form}>
+            <Text style={styles.title}>Enter Passcode</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter 4-digit passcode"
+              value={passcode}
+              onChangeText={setPasscode}
+              keyboardType="numeric"
+              maxLength={4}
+              secureTextEntry
+            />
+            <TouchableOpacity
+              style={[styles.button, isProcessing && styles.buttonDisabled]}
+              onPress={handleCheckBalance}
+              disabled={isProcessing || passcode.length !== 4}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Check Balance</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.balanceContainer}>
+            <Text style={styles.balanceTitle}>Current Balance</Text>
+            <Text style={styles.balanceAmount}>₹{balance}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
