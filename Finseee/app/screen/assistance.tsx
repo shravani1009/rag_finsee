@@ -6,7 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { textToSpeech } from '../utils/tts';
 
 const SARVAM_API_KEY = '9ede12ba-df25-4f8c-8429-eac58a72fc8f'; // Replace with your actual API key
-const BACKEND_URL = 'http://192.168.29.114:5000';  // Update with your local IP
+const BACKEND_URL = 'http://172.21.3.222:5000';  // Update with your local IP
 
 export default function AssistanceScreen() {
   const router = useRouter();
