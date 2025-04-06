@@ -10,49 +10,20 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import re
+from Rag import rag_system
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"]}})
 
 client = Groq(api_key="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")
 
-# Initialize PDF processing
-def setup_pdf_embeddings(pdf_path):
-    try:
-        reader = PdfReader(pdf_path)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-        
-        # Split into chunks
-        chunks = [text[i:i+512] for i in range(0, len(text), 512)]
-        
-        # Create embeddings
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-        embeddings = model.encode(chunks)
-        
-        # Create FAISS index
-        dimension = embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        index.add(embeddings)
-        
-        return chunks, index, model
-    except Exception as e:
-        print(f"Error setting up PDF: {e}")
-        return None, None, None
-
 # Initialize PDF data
 PDF_PATH = "C:\\Users\\Admin\\Downloads\\Statement-XX2113_unlocked.pdf"
-text_chunks, faiss_index, embedding_model = setup_pdf_embeddings(PDF_PATH)
+rag_system.load_pdf(PDF_PATH)
 
 def get_relevant_context(query, k=3):
-    if not (text_chunks and faiss_index and embedding_model):
-        return ""
-    
-    query_vector = embedding_model.encode([query])
-    D, I = faiss_index.search(query_vector, k)
-    relevant_chunks = [text_chunks[i] for i in I[0]]
-    return " ".join(relevant_chunks)
+    chunks = rag_system.get_relevant_chunks(query, k)
+    return rag_system.format_context(chunks)
 
 def extract_transaction_details(text):
     try:
@@ -72,22 +43,27 @@ def extract_transaction_details(text):
         return None
 
 # Update SYSTEM_PROMPT to include RAG handling
-SYSTEM_PROMPT = """You are Finsee, a helpful and efficient banking and financial assistant. Keep responses under 50 words.
+SYSTEM_PROMPT = """You are Finsee, a helpful and efficient banking assistant. Keep responses under 50 words.
+
+Your primary responsibilities:
+1. Handle banking operations (transfers, payments, balance)
+2. Provide financial advice based on transaction data
+3. Support both English and Hindi queries
+
+For financial advice and statements, analyze the provided context to give accurate, personalized responses.
+
 Always respond in this exact JSON format:
 {
     "intent": "one of: greeting, balance, transfer, scan_qr, pay_phone, pay_contacts, profile, financial_advice",
-    "response": "friendly concise response incorporating context from bank statement when available",
-    "action": "none"
+    "response": "friendly concise response",
+    "action": "one of: none, /screen/home, /screen/check-balance, /screen/bank-transfer, /screen/scan-qr, /screen/pay-phone, /screen/pay-contacts, /screen/profile, /screen/financial-advice"
 }
 
-For financial advice, analyze the provided transaction context to offer:
-1. Spending pattern insights
-2. Saving suggestions
-3. Budget recommendations
-4. Transaction anomalies
-5. Basic financial tips
-
-Keep advice practical, clear, and focused on the user's actual transaction history."""
+For financial advice:
+- Use transaction context to give relevant advice
+- Keep responses practical and actionable
+- Consider both spending patterns and savings
+- Respond in the same language as the query (English/Hindi)"""
 
 ONBOARDING_PROMPT = """You are Finsee's registration assistant. Guide users through registration.
 Always respond in this JSON format:
@@ -137,32 +113,64 @@ def chat():
     try:
         user_message = request.json.get('message', '')
         
-        # Get context for both financial advice and regular queries
-        context = get_relevant_context(user_message)
-        transaction_details = extract_transaction_details(context) if context else None
-        
-        # Create enhanced prompt with context
-        enhanced_prompt = SYSTEM_PROMPT
-        if context:
-            enhanced_prompt += f"\n\nTransaction Context:\n{context}"
-            if transaction_details:
-                enhanced_prompt += f"\n\nDetected amounts: {transaction_details['amounts']}\nDates: {transaction_details['dates']}"
+        if is_financial_query(user_message):
+            context = get_relevant_context(user_message)
+            transaction_details = extract_transaction_details(context)
+            
+            # Enhanced RAG prompt for financial advice
+            rag_prompt = f"""Analyze this bank statement context:
+{context}
 
+User query: {user_message}
+
+Provide detailed financial advice based on the transaction patterns.
+Include:
+1. Spending analysis
+2. Actionable recommendations
+3. Savings opportunities
+4. Budget suggestions
+
+Response must follow this format:
+{{
+    "intent": "financial_advice",
+    "response": "clear and structured financial advice",
+    "action": "/screen/financial-advice",
+    "analysis": {{
+        "summary": "brief overview",
+        "recommendations": ["list", "of", "suggestions"],
+        "savings_potential": "identified savings opportunities"
+    }}
+}}"""
+
+            completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": rag_prompt}
+                ],
+                model="mistral-saba-24b",
+                temperature=0.3,
+                max_tokens=200
+            )
+            
+            response_data = json.loads(completion.choices[0].message.content)
+            if transaction_details:
+                response_data['transaction_data'] = transaction_details
+            
+            return jsonify({"status": "success", "data": response_data})
+
+        # Handle non-financial queries with existing flow
         completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": enhanced_prompt},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message}
             ],
             model="mistral-saba-24b",
             temperature=0.7,
-            max_tokens=200
+            max_tokens=150
         )
         
-        response_data = json.loads(completion.choices[0].message.content)
-        if transaction_details:
-            response_data['transaction_data'] = transaction_details
-        
-        return jsonify({"status": "success", "data": response_data})
+        response = completion.choices[0].message.content
+        return jsonify({"status": "success", "data": json.loads(response)})
         
     except Exception as e:
         print(f"Chat error: {str(e)}")

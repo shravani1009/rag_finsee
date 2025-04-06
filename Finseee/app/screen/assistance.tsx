@@ -150,23 +150,38 @@ export default function AssistanceScreen() {
       console.log('Server response:', data);
 
       if (data.status === 'success') {
-        const { response: aiResponse, action } = data.data;
-        setSpokenText(aiResponse);
+        const { response: aiResponse, action, analysis, transaction_data } = data.data;
+        
+        // Format response for TTS based on content type
+        let ttsText = aiResponse;
+        if (analysis) {
+          ttsText = `${aiResponse}. Here's my analysis: ${analysis.summary}. 
+            My recommendations are: ${analysis.recommendations.join('. ')}. 
+            Savings potential: ${analysis.savings_potential}`;
+        }
+        
+        setSpokenText(ttsText);
         
         // Convert response to speech using Sarvam AI
         try {
           if (responseSound) {
             await responseSound.unloadAsync();
           }
-          const newSound = await textToSpeech(aiResponse);
+          const newSound = await textToSpeech(ttsText);
           setResponseSound(newSound);
           await newSound.playAsync();
           
-          // Handle navigation after speech starts
+          // Handle navigation after speech starts, passing transaction data if available
           if (action && action !== 'none') {
             setTimeout(() => {
-              router.push(action);
-            }, 1000); // Give speech a chance to start before navigation
+              router.push({
+                pathname: action,
+                params: { 
+                  transactionData: transaction_data ? JSON.stringify(transaction_data) : null,
+                  analysis: analysis ? JSON.stringify(analysis) : null
+                }
+              });
+            }, 1000);
           }
         } catch (ttsError) {
           console.error('TTS error:', ttsError);

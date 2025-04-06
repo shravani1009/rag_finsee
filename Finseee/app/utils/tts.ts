@@ -2,7 +2,7 @@ import { Audio } from 'expo-av';
 
 const SARVAM_API_KEY = '9ede12ba-df25-4f8c-8429-eac58a72fc8f';
 
-export async function textToSpeech(text: string): Promise<Audio.Sound> {
+export async function textToSpeech(text: string, language: string = 'en-IN'): Promise<Audio.Sound> {
   try {
     const options = {
       method: 'POST',
@@ -12,14 +12,15 @@ export async function textToSpeech(text: string): Promise<Audio.Sound> {
       },
       body: JSON.stringify({
         inputs: [text],
-        target_language_code: 'en-IN',
-        speaker: 'vidya',
+        target_language_code: language,
+        speaker: language.startsWith('hi') ? 'rajneel' : 'vidya',
         pitch: 0,
         pace: 0.9,
         loudness: 1.5,
         speech_sample_rate: 22050,
         enable_preprocessing: true,
-        model: 'bulbul:v2'
+        model: 'bulbul:v2',
+        domain: 'finance'
       })
     };
 

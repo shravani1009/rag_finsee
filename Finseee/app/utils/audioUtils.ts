@@ -1,6 +1,6 @@
 const SARVAM_API_KEY = '9ede12ba-df25-4f8c-8429-eac58a72fc8f';
 
-export const sendAudioToSarvam = async (audioUri: string): Promise<string> => {
+export const sendAudioToSarvam = async (audioUri: string, language: string = 'hi-IN'): Promise<string> => {
   try {
     const form = new FormData();
     form.append("file", {
@@ -9,7 +9,8 @@ export const sendAudioToSarvam = async (audioUri: string): Promise<string> => {
       name: 'recording.wav'
     });
     form.append("model", "saarika:v2");
-    form.append("language_code", "en-IN");
+    form.append("language_code", language);
+    form.append("domain", "finance"); // Add finance domain hint
     
     const response = await fetch('https://api.sarvam.ai/speech-to-text', {
       method: 'POST',
