@@ -1,0 +1,6 @@
+supabase>=2.0.0
+# ...existing requirements...
+sentence-transformers
+faiss-cpu
+PyPDF2
+torch
